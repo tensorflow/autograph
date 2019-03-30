@@ -70,7 +70,7 @@ def cb_allocate(el, size):
       size=size + 1,
       element_shape=tf.TensorShape(None),
       clear_after_read=False)
-  for i in range(size):
+  for i in tf.range(size):
     buff = buff.write(i, el)
   begin = 0
   end = 0
@@ -131,116 +131,11 @@ def loss_and_grad(w_flat, data):
 
 
 def lbfgs_eager(x, data):
-  """Implementation of L-BFGS in Eager mode."""
-
-  f, g = loss_and_grad(x, data)
-  f_hist = [f]
-  f_evals = 1
-
-  prev_g = tf.zeros_like(g)
-  prev_f = tf.zeros_like(f)
-
-  # Check optimality of initial point.
-  if tf.reduce_sum(tf.abs(g)) <= TOL_F:
-    print('Optimality condition below TOL_F.')
-    return x, f_hist
-
-  # Pre-allocate some buffers.
-  dirs_buff, dirs_begin, dirs_end = cb_allocate(0., N_CORRECTIONS)
-  steps_buff, steps_begin, steps_end = cb_allocate(0., N_CORRECTIONS)
-  ro, _, _ = cb_allocate(0., N_CORRECTIONS)
-  al, _, _ = cb_allocate(0., N_CORRECTIONS)
-
-  # Optimize for a max of MAX_ITER iterations.
-  # TODO(mdanatg): Giant loop not ideally structured.
-  n_iter = 0
-  t = 0.0
-  while n_iter <= MAX_ITER:
-    n_iter += 1
-
-    if n_iter == 1:
-      h_diag = 1
-      d = -g
-    else:
-      y = g - prev_g
-      s = d * t
-      ys = dot(y, s)
-
-      if ys > 1e-10:
-        dirs_buff, dirs_begin, dirs_end = cb_append(dirs_buff, dirs_begin,
-                                                    dirs_end, N_CORRECTIONS, s)
-        steps_buff, steps_begin, steps_end = cb_append(
-            steps_buff, steps_begin, steps_end, N_CORRECTIONS, y)
-        h_diag = ys / dot(y, y)
-
-      # Approximate inverse Hessian-gradient product.
-      q = -g
-      for i in cb_rev_range(dirs_begin, dirs_end, N_CORRECTIONS):
-        ro = ro.write(i, 1 / dot(steps_buff.read(i), dirs_buff.read(i)))
-        al = al.write(i, dot(dirs_buff.read(i), q) * ro.read(i))
-        q = q - al.read(i) * steps_buff.read(i)
-
-      r = q * h_diag
-      for i in cb_range(dirs_begin, dirs_end, N_CORRECTIONS):
-        be = dot(steps_buff.read(i), r) * ro.read(i)
-        r += (al.read(i) - be) * dirs_buff.read(i)
-
-      d = r
-
-    prev_g = g
-    prev_f = f
-
-    # Step direction (directional derivative).
-    gtd = dot(g, d)
-
-    if gtd > -TOL_X:
-      print('Can not make progress along direction.')
-      break
-
-    # Step size
-    if n_iter == 1:
-      t = min(1, 1 / tf.reduce_sum(tf.abs(g)))
-    else:
-      t = LEARNING_RATE
-
-    # No line search, simply move with fixed step.
-    x += t * d
-
-    if n_iter < MAX_ITER:
-      # Skip re-evaluation after last iteration.
-      f, g = loss_and_grad(x, data)
-      f_evals += 1  # This becomes less trivial when using line search.
-
-      f_hist.append(f)
-
-    # Check conditions, again on all-but-final-eval only.
-    if n_iter == MAX_ITER:
-      break
-
-    if f_evals >= MAX_EVAL:
-      print('Max number of function evals.')
-      break
-
-    if tf.reduce_sum(tf.abs(d * t)) <= TOL_X:
-      print('Step size below TOL_X.')
-      break
-
-    f_delta = tf.abs(f - prev_f)
-    if f_delta < TOL_X:
-      print('Function value changing less than TOL_X.', f_delta)
-      break
-
-  return x, f_hist
-
-
-@tf.function(
-    experimental_autograph_options=tf.autograph.experimental.Feature.ALL)
-def lbfgs_autograph(x, data):
-  """Implementation of L-BFGS in AutoGraph."""
+  """Implementation of L-BFGS in AutoGraph / TF Eager."""
 
   f, g = loss_and_grad(x, data)
   f_hist = tf.TensorArray(f.dtype, size=0, dynamic_size=True)
-  f_hist.append(f)
+  f_hist = f_hist.write(0, f)
   f_evals = 1
 
   # Check optimality of initial point.
@@ -279,14 +174,14 @@ def lbfgs_autograph(x, data):
       # Approximate inverse Hessian-gradient product.
       q = -g
       for i in cb_rev_range(dirs_begin, dirs_end, N_CORRECTIONS):
-        ro[i] = 1.0 / dot(steps_buff[i], dirs_buff[i])
-        al[i] = dot(dirs_buff[i], q) * ro[i]
-        q = q - al[i] * steps_buff[i]
+        ro = ro.write(i, 1 / dot(steps_buff.read(i), dirs_buff.read(i)))
+        al = al.write(i, dot(dirs_buff.read(i), q) * ro.read(i))
+        q = q - al.read(i) * steps_buff.read(i)
 
       r = q * h_diag
       for i in cb_range(dirs_begin, dirs_end, N_CORRECTIONS):
-        be = dot(steps_buff[i], r) * ro[i]
-        r += (al[i] - be) * dirs_buff[i]
+        be = dot(steps_buff.read(i), r) * ro.read(i)
+        r += (al.read(i) - be) * dirs_buff.read(i)
 
       d = r
 
@@ -312,7 +207,11 @@ def lbfgs_autograph(x, data):
       f, g = loss_and_grad(x, data)
       f_evals += 1  # This becomes less trivial when using line search.
 
-      f_hist.append(f)
+      f_hist = f_hist.write(f_hist.size(), f)
+
+    # Check conditions, again on all-but-final-eval only.
+    if tf.equal(n_iter, MAX_ITER):
+      break
 
     if f_evals >= MAX_EVAL:
       tf.print('Max number of function evals.')
@@ -328,6 +227,11 @@ def lbfgs_autograph(x, data):
       break
 
   return x, f_hist.stack()
+
+
+lbfgs_autograph = tf.function(
+    lbfgs_eager,
+    experimental_autograph_options=tf.autograph.experimental.Feature.ALL)
 
 
 class LBFGSBenchmark(benchmark_base.ReportingBenchmark):

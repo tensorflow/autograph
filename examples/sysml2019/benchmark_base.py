@@ -47,7 +47,7 @@ class ReportingBenchmark(tf.test.Benchmark):
                      iter_unit=None,
                      extras=None):
     if iters is None:
-      iters = int(os.environ.get('BENCHMARK_NUM_EXECUTIONS', 10))
+      iters = int(os.environ.get('BENCHMARK_NUM_EXECUTIONS', 1))
 
     for _ in range(warm_up_iters):
       target()
