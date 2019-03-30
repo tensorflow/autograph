@@ -237,9 +237,8 @@ lbfgs_autograph = tf.function(
 class LBFGSBenchmark(benchmark_base.ReportingBenchmark):
   """Basic benchmark for the L-BFGS algorithm."""
 
-  def _run_benchmark(self, name, algorithm_function, hidden_size):
+  def _run_benchmark(self, name, algorithm_function, hidden_size, data):
     w_flat = tf.Variable(tf.zeros((INPUT_SIZE * hidden_size,)))
-    data, _ = next(iter(mnist_dataset()))
 
     def target():
       new_w_flat, _ = algorithm_function(w_flat.read_value(), data)
@@ -252,11 +251,12 @@ class LBFGSBenchmark(benchmark_base.ReportingBenchmark):
                         })
 
   def benchmark_lbfgs(self):
+    data, _ = next(iter(mnist_dataset()))
     # TODO(mdanatg): Use more interesting parametrizations.
     # TODO(mdanatg): Double check correctness.
     for hidden_size in (100,):
-      self._run_benchmark('Eager', lbfgs_eager, hidden_size)
-      self._run_benchmark('AutoGraph', lbfgs_autograph, hidden_size)
+      self._run_benchmark('Eager', lbfgs_eager, hidden_size, data)
+      self._run_benchmark('AutoGraph', lbfgs_autograph, hidden_size, data)
 
 
 if __name__ == '__main__':
