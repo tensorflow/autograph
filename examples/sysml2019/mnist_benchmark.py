@@ -23,7 +23,9 @@ from __future__ import print_function
 
 import benchmark_base
 
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
+from google3.third_party.tensorflow.contrib import training as contrib_training
+from google3.third_party.tensorflow.contrib.eager.python import tfe as contrib_eager
 
 
 tf.enable_eager_execution()
@@ -33,7 +35,7 @@ def get_data_and_params():
   """Set up input dataset and variables."""
   (train_x, train_y), _ = tf.keras.datasets.mnist.load_data()
   tf.set_random_seed(0)
-  hparams = tf.contrib.training.HParams(
+  hparams = contrib_training.HParams(
       batch_size=200,
       learning_rate=0.1,
       train_steps=101,
@@ -75,7 +77,7 @@ class MNISTBenchmark(benchmark_base.ReportingBenchmark):
       for i, (x, y) in enumerate(iterator):
         if i >= hp.train_steps:
           break
-        with tf.contrib.eager.GradientTape() as tape:
+        with contrib_eager.GradientTape() as tape:
           tape.watch(w)
           tape.watch(b)
           loss_val = loss_fn(x, y, w, b)
@@ -134,7 +136,8 @@ class MNISTBenchmark(benchmark_base.ReportingBenchmark):
 
       return loss
 
-    loop = tf.autograph.to_graph(loop)
+    loop = tf.autograph.to_graph(
+        loop, experimental_optional_features=tf.autograph.Feature.ALL)
 
     with tf.Graph().as_default():
       ds, opt, hp, w, b = get_data_and_params()

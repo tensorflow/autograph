@@ -32,8 +32,6 @@ import numpy as np
 import tensorflow as tf
 
 
-
-
 AMP_RANGE = (0.1, 5.0)
 PHASE_RANGE = (0.0, np.pi)
 INPUT_RANGE = (-5.0, 5.0)

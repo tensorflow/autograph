@@ -30,8 +30,6 @@ import numpy as np
 import tensorflow as tf
 
 
-
-
 # Implicitly assumed by code: OOV_TOKEN = 0
 INIT_TOKEN = 1
 EOS_TOKEN = 2

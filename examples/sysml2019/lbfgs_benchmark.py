@@ -32,8 +32,6 @@ import benchmark_base
 import tensorflow as tf
 
 
-
-
 INPUT_SIZE = 28 * 28
 BATCH_SIZE = 100
 

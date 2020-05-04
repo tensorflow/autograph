@@ -27,10 +27,7 @@ from __future__ import print_function
 import benchmark_base
 
 import numpy as np
-import tensorflow as tf_v1
-
-
-tf = tf_v1.compat.v2
+import tensorflow as tf
 
 
 BATCH_SIZE = 32
