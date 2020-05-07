@@ -29,7 +29,7 @@ import tensorflow.compat.v1 as tf
 
 
 def xrange_call(x):
-  return xrange(x)
+  return list(six.moves.xrange(x))
 
 
 def dict_call(x):
