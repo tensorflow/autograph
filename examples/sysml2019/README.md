@@ -12,7 +12,7 @@ Create a directory for the benchmark result files:
 
 Run benchmarks:
 
-    pip install tesnorflow
+    pip install tensorflow
     python beam_search_benchmark.py --benchmarks=.
     python lbfgs_benchmark.py --benchmarks=.
     python maml_benchmark.py --benchmarks=.
